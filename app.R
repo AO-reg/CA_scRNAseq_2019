@@ -22,8 +22,8 @@ ui <- fluidPage(
       textInput("genes", "遺伝子名（カンマ区切り）", value = ""),
       selectInput("reduction", "Reduction（次元縮約）", choices = c("umap","tsne","pca"), selected = "umap"),
       hr(),
-      numericInput("workers", "並列ワーカー数（コア数）", value = max(1, parallel::detectCores() - 1), min = 1, step = 1),
-      numericInput("memGB", "メモリ上限（GB）", value = 16, min = 1, step = 1),
+      numericInput("workers", "並列ワーカー数（コア数）", value = 2, min = 1, step = 1),
+      numericInput("memGB", "メモリ上限（GB）", value = 4, min = 1, step = 1),
       hr(),
       checkboxInput("onlypos", "マーカーは正方向のみ（only.pos）", value = TRUE),
       actionButton("runMarkers", "FindAllMarkers 実行")
