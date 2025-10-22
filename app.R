@@ -1,23 +1,21 @@
-install.packages("shiny")
-install.packages("SeuratObject")
-install.packages("spatstat.data", repos = "https://cloud.r-project.org", type = "source")
-install.packages("Seurat")
-install.packages("ggplot2")
-install.packages("DT")
-install.packages("future")
-
-
 # ==== 必要パッケージ ====
 library(shiny)
 library(Seurat)
 library(DT)
 library(future)
-library(grid)  # unit() で使用
+library(grid)
 
-# ==== 既定の相対パス（同梱 RDS）====
-DEFAULT_RDS_PATH <- file.path("EMTAB7716.umap_cosine_walktrap.rds")
+# === Minimal: Releases の .rds ===
+DATA_URL <- Sys.getenv("https://github.com/AO-reg/CA_scRNAseq_2019/releases/download/RDS/EMTAB7716.umap_cosine_walktrap.rds")
+stopifnot(nzchar(DATA_URL))
 
-# ==== groupby の候補（存在する列のみがUIに出ます）====
+LOCAL_RDS <- file.path(tempdir(), "data_from_release.rds")
+if (!file.exists(LOCAL_RDS)) {
+  utils::download.file(DATA_URL, destfile = LOCAL_RDS, mode = "wb", quiet = TRUE)
+}
+SEURAT_OBJ <- readRDS(LOCAL_RDS)
+
+# ==== groupby の候補）====
 ALLOWED_GROUPBY <- c("cluster", "DevelopmentalStage", "DaysPostAmputation", "CellCyclePhase")
 
 # ================= UI =================
@@ -56,33 +54,24 @@ ui <- fluidPage(
 server <- function(input, output, session) {
   
   obj <- reactiveVal(NULL)
+  obj(SEURAT_OBJ)
   
   # --- 起動直後：同梱RDS（data/object.rds）を自動ロード ---
-  session$onFlushed(function(){
-    # ★ここを修正：reactive を読むときは isolate() を使う
-    if (!is.null(isolate(obj()))) return(NULL)
-    if (!file.exists(DEFAULT_RDS_PATH)) return(NULL)
-    
-    x <- try(readRDS(DEFAULT_RDS_PATH), silent = TRUE)
-    if (!inherits(x, "try-error") && inherits(x, "Seurat")) {
-      obj(x)
-      # （以下はそのまま）
-      md_cols <- colnames(x@meta.data)
-      choices <- intersect(ALLOWED_GROUPBY, md_cols)
-      if ("cluster" %in% md_cols)        choices <- c(choices, "cluster")
-      if ("seurat_clusters" %in% md_cols) choices <- c(choices, "seurat_clusters")
-      choices <- unique(c(choices, md_cols))
-      if (length(choices) == 0) choices <- "orig.ident"
-      sel <- if ("cluster" %in% choices) "cluster" else if ("seurat_clusters" %in% choices) "seurat_clusters" else choices[1]
-      updateSelectInput(session, "groupby", choices = choices, selected = sel)
-      
-      red_ok <- intersect(c("umap","tsne","pca"), Reductions(x))
-      if (length(red_ok) == 0) red_ok <- "pca"
-      updateSelectInput(session, "reduction", choices = red_ok, selected = red_ok[1])
-    }
-  }, once = TRUE)
+    {
+    x <- obj(); validate(need(inherits(x, "Seurat"), "Seuratオブジェクトが読み込めていません"))
+    md_cols <- colnames(x@meta.data)
+    choices <- unique(c(intersect(ALLOWED_GROUPBY, md_cols), md_cols))
+    if (length(choices) == 0) choices <- "orig.ident"
+    sel <- if ("cluster" %in% choices) "cluster" else if ("seurat_clusters" %in% choices) "seurat_clusters" else choices[1]
+    updateSelectInput(session, "groupby", choices = choices, selected = sel)
+
+    red_ok <- intersect(c("umap","tsne","pca"), Reductions(x))
+    if (length(red_ok) == 0) red_ok <- "pca"
+    updateSelectInput(session, "reduction", choices = red_ok, selected = red_ok[1])
+  }
   
   # --- 手動読み込み（アップロード or 任意パス） ---
+    # 手動読み込み（アップロード or 任意パス）
   observeEvent(input$loadBtn, {
     x <- NULL
     if (!is.null(input$rds)) {
@@ -94,16 +83,13 @@ server <- function(input, output, session) {
     }
     validate(need(!is.null(x) && inherits(x, "Seurat"), "Seuratオブジェクトを読み込めませんでした"))
     obj(x)
-    
+
     md_cols <- colnames(x@meta.data)
-    choices <- intersect(ALLOWED_GROUPBY, md_cols)
-    if ("cluster" %in% md_cols)        choices <- c(choices, "cluster")
-    if ("seurat_clusters" %in% md_cols) choices <- c(choices, "seurat_clusters")
-    choices <- unique(c(choices, md_cols))
+    choices <- unique(c(intersect(ALLOWED_GROUPBY, md_cols), md_cols))
     if (length(choices) == 0) choices <- "orig.ident"
     sel <- if ("cluster" %in% choices) "cluster" else if ("seurat_clusters" %in% choices) "seurat_clusters" else choices[1]
     updateSelectInput(session, "groupby", choices = choices, selected = sel)
-    
+
     red_ok <- intersect(c("umap","tsne","pca"), Reductions(x))
     if (length(red_ok) == 0) red_ok <- "pca"
     updateSelectInput(session, "reduction", choices = red_ok, selected = red_ok[1])
