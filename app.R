@@ -18,7 +18,7 @@ ui <- fluidPage(
       textInput("path", "ローカル/サーバ上のRDSパス（任意）", value = ""),
       actionButton("loadBtn", "読み込む"),
       hr(),
-      selectInput("groupby", "グループ化（Identsに設定）", choices = ALLOWED_GROUPBY),
+      selectInput("groupby", "グループ化（Identsに設定）", choices = NULL),
       checkboxInput("setIdents", "Identsを上で選んだ列に設定する", value = TRUE),
       textInput("genes", "遺伝子名（カンマ区切り）", value = ""),
       selectInput("reduction", "Reduction（次元縮約）", choices = c("umap","tsne","pca"), selected = "umap"),
@@ -62,7 +62,7 @@ server <- function(input, output, session) {
     choices <- intersect(ALLOWED_GROUPBY, md_cols)
     if ("cluster" %in% md_cols)         choices <- c(choices, "cluster")
     if ("seurat_clusters" %in% md_cols)  choices <- c(choices, "seurat_clusters")
-    choices <- unique(c(choices, md_cols))
+    choices <- intersect(ALLOWED_GROUPBY, md_cols)
     if (length(choices) == 0) choices <- "orig.ident"
     sel <- if ("cluster" %in% choices) "cluster" else if ("seurat_clusters" %in% choices) "seurat_clusters" else choices[1]
     updateSelectInput(session, "groupby", choices = choices, selected = sel)
