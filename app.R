@@ -5,9 +5,8 @@ library(DT)
 library(future)
 library(grid)
 
-# === Minimal: Releases の .rds（フォールバック有り） ===
-DATA_URL <- Sys.getenv("DATA_URL", unset = "")
-DEFAULT_RDS_PATH <- "data/object.rds"  # ← 実ファイルに合わせて
+#1Gまで読み込み
+options(shiny.maxRequestSize = 1024^3)
 
 # ==== groupby の候補）====
 ALLOWED_GROUPBY <- c("cluster", "DevelopmentalStage", "DaysPostAmputation", "CellCyclePhase")
@@ -47,37 +46,6 @@ ui <- fluidPage(
 # ================= Server =================
 server <- function(input, output, session) {
   obj <- reactiveVal(NULL)
-
-  # 起動後に一度だけロード＆UI初期化
-  session$onFlushed(function(){
-    if (!is.null(isolate(obj()))) return(NULL)
-
-    path <- DEFAULT_RDS_PATH
-    if (nzchar(DATA_URL)) {
-      local <- file.path(tempdir(), "data_from_release.rds")
-      if (!file.exists(local)) {
-        utils::download.file(DATA_URL, destfile = local, mode = "wb", quiet = TRUE)
-      }
-      path <- local
-    }
-
-    withProgress(message = "Loading data...", value = 0.1, {
-      x <- readRDS(path)
-      obj(x)
-    })
-
-    # ---- UI 初期化（あなたの元コードのまま） ----
-    x <- obj()
-    md_cols <- colnames(x@meta.data)
-    choices <- unique(c(intersect(ALLOWED_GROUPBY, md_cols), md_cols))
-    if (length(choices) == 0) choices <- "orig.ident"
-    sel <- if ("cluster" %in% choices) "cluster" else if ("seurat_clusters" %in% choices) "seurat_clusters" else choices[1]
-    updateSelectInput(session, "groupby", choices = choices, selected = sel)
-
-    red_ok <- intersect(c("umap","tsne","pca"), Reductions(x))
-    if (length(red_ok) == 0) red_ok <- "pca"
-    updateSelectInput(session, "reduction", choices = red_ok, selected = red_ok[1])
-  }, once = TRUE)
   
   # --- 手動読み込み（アップロード or 任意パス） ---
   observeEvent(input$loadBtn, {
