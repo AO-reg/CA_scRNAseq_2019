@@ -4,7 +4,8 @@ library(DT)
 library(future)
 library(grid)
 
-# app.R（ライブラリ直後のグローバルに）
+#1Gまで読み込み
+options(shiny.maxRequestSize = 1024^3)
 
 ALLOWED_GROUPBY <- c("cluster", "DevelopmentalStage", "DaysPostAmputation", "CellCyclePhase") 
 
