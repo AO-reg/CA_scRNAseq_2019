@@ -6,7 +6,7 @@ library(future)
 library(grid)
 
 # === Minimal: Releases の .rds ===
-DATA_URL <- Sys.getenv("https://github.com/AO-reg/CA_scRNAseq_2019/releases/download/RDS/EMTAB7716.umap_cosine_walktrap.rds")
+DATA_URL <- Sys.getenv("DATA_URL", unset = "")
 stopifnot(nzchar(DATA_URL))
 
 LOCAL_RDS <- file.path(tempdir(), "data_from_release.rds")
