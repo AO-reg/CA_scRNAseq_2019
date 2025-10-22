@@ -5,15 +5,9 @@ library(DT)
 library(future)
 library(grid)
 
-# === Minimal: Releases の .rds ===
+# === Minimal: Releases の .rds（フォールバック有り） ===
 DATA_URL <- Sys.getenv("DATA_URL", unset = "")
-stopifnot(nzchar(DATA_URL))
-
-LOCAL_RDS <- file.path(tempdir(), "data_from_release.rds")
-if (!file.exists(LOCAL_RDS)) {
-  utils::download.file(DATA_URL, destfile = LOCAL_RDS, mode = "wb", quiet = TRUE)
-}
-SEURAT_OBJ <- readRDS(LOCAL_RDS)
+DEFAULT_RDS_PATH <- "data/object.rds"  # ← 実ファイルに合わせて
 
 # ==== groupby の候補）====
 ALLOWED_GROUPBY <- c("cluster", "DevelopmentalStage", "DaysPostAmputation", "CellCyclePhase")
@@ -54,6 +48,7 @@ ui <- fluidPage(
 server <- function(input, output, session) {
   obj <- reactiveVal(NULL)
 
+  # 起動後に一度だけロード＆UI初期化
   session$onFlushed(function(){
     if (!is.null(isolate(obj()))) return(NULL)
 
@@ -71,7 +66,7 @@ server <- function(input, output, session) {
       obj(x)
     })
 
-    # ---- UI 初期化 ----
+    # ---- UI 初期化（あなたの元コードのまま） ----
     x <- obj()
     md_cols <- colnames(x@meta.data)
     choices <- unique(c(intersect(ALLOWED_GROUPBY, md_cols), md_cols))
@@ -83,7 +78,6 @@ server <- function(input, output, session) {
     if (length(red_ok) == 0) red_ok <- "pca"
     updateSelectInput(session, "reduction", choices = red_ok, selected = red_ok[1])
   }, once = TRUE)
-}
   
   # --- 手動読み込み（アップロード or 任意パス） ---
   observeEvent(input$loadBtn, {
@@ -193,6 +187,6 @@ server <- function(input, output, session) {
     datatable(markersDf(), options = list(pageLength = 10), rownames = FALSE)
   })
 }
-
+                             
 # ================= Run =================
 shinyApp(ui, server)
