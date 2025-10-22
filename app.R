@@ -52,13 +52,27 @@ ui <- fluidPage(
 
 # ================= Server =================
 server <- function(input, output, session) {
-  
   obj <- reactiveVal(NULL)
-  obj(SEURAT_OBJ)
-  
-  # --- 起動直後：同梱RDS（data/object.rds）を自動ロード ---
-    {
-    x <- obj(); validate(need(inherits(x, "Seurat"), "Seuratオブジェクトが読み込めていません"))
+
+  session$onFlushed(function(){
+    if (!is.null(isolate(obj()))) return(NULL)
+
+    path <- DEFAULT_RDS_PATH
+    if (nzchar(DATA_URL)) {
+      local <- file.path(tempdir(), "data_from_release.rds")
+      if (!file.exists(local)) {
+        utils::download.file(DATA_URL, destfile = local, mode = "wb", quiet = TRUE)
+      }
+      path <- local
+    }
+
+    withProgress(message = "Loading data...", value = 0.1, {
+      x <- readRDS(path)
+      obj(x)
+    })
+
+    # ---- UI 初期化 ----
+    x <- obj()
     md_cols <- colnames(x@meta.data)
     choices <- unique(c(intersect(ALLOWED_GROUPBY, md_cols), md_cols))
     if (length(choices) == 0) choices <- "orig.ident"
@@ -68,10 +82,10 @@ server <- function(input, output, session) {
     red_ok <- intersect(c("umap","tsne","pca"), Reductions(x))
     if (length(red_ok) == 0) red_ok <- "pca"
     updateSelectInput(session, "reduction", choices = red_ok, selected = red_ok[1])
-  }
+  }, once = TRUE)
+}
   
   # --- 手動読み込み（アップロード or 任意パス） ---
-    # 手動読み込み（アップロード or 任意パス）
   observeEvent(input$loadBtn, {
     x <- NULL
     if (!is.null(input$rds)) {
